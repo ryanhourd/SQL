@@ -1,0 +1,167 @@
+SELECT *
+  FROM [dbo].[gradeRecord]
+  WHERE studentID = 64698
+
+----Remove Duplicate studentID records
+
+SELECT		 studentID
+FROM		 gradeRecord
+GROUP by	 studentID
+HAVING COUNT (studentID) >1
+ORDER BY	 studentID
+
+WITH Dup AS (
+    SELECT 
+        studentID, 
+         ROW_NUMBER() OVER (
+            PARTITION BY 
+                studentID
+            ORDER BY 
+                studentID
+        ) row_num
+     FROM 
+       gradeRecord
+)
+DELETE FROM Dup
+WHERE row_num > 1;
+
+--change scores to a value representing a percentage
+UPDATE gradeRecord
+SET Studentaverage =  Studentaverage * 100
+SELECT * FROM gradeRecord
+
+---Create Student Table
+SELECT StudentID, FirstName, LastName
+INTO   Student
+FROM   GradeRecord
+
+---Create PK
+ALTER TABLE  Student
+ALTER COLUMN StudentID int NOT NULL;
+
+ALTER TABLE  Student
+ADD CONSTRAINT PK_Student PRIMARY KEY (StudentID);
+
+--Create Results Table
+SELECT StudentID, MidtermExam, FinalExam, Assignment1, Assignment2
+INTO   Results
+FROM   GradeRecord
+--Create Primary Key
+ALTER TABLE  Results
+ALTER COLUMN StudentID int NOT NULL;
+
+ALTER TABLE  Results
+ADD CONSTRAINT PK_Results PRIMARY KEY (StudentID);
+
+--Create Average Table
+SELECT StudentID, Totalpoints, Studentaverage, Grade
+INTO   Average
+FROM   GradeRecord
+
+--Create the GradeID column in Average Table
+ALTER TABLE   Average
+ADD			  GradeID int;
+
+--Remove leading spaces from Grade column
+UPDATE Average
+Set Grade = LTRIM(Grade)
+
+UPDATE  Average
+Set GradeID = 101
+WHERE Grade = 'A'
+
+UPDATE  Average
+Set GradeID = 102
+WHERE Grade = 'A-'
+
+UPDATE  Average
+Set GradeID = 103
+WHERE Grade = 'B+'
+
+UPDATE  Average
+Set GradeID = 104
+WHERE Grade = 'B-'
+
+UPDATE  Average
+Set GradeID = 105
+WHERE Grade = 'C+'
+
+UPDATE  Average
+Set GradeID = 106
+WHERE Grade = 'C'
+
+UPDATE  Average
+Set GradeID = 107
+WHERE Grade = 'C-'
+
+UPDATE  Average
+Set GradeID = 108
+WHERE Grade = 'D+'
+
+UPDATE  Average
+Set GradeID = 109
+WHERE Grade = 'D'
+
+UPDATE  Average
+Set GradeID = 110
+WHERE Grade = 'D-'
+
+UPDATE  Average
+Set GradeID = 111
+WHERE Grade = 'F'
+
+--Set PK
+ALTER TABLE  Average
+ALTER COLUMN StudentID int NOT NULL;
+
+
+---- Create LetterGrade Table 
+SELECT Grade, GradeID
+INTO   LetterGrade
+FROM   Average
+
+ALTER TABLE Average
+DROP COLUMN Grade
+
+--Remove Duplicates
+WITH Dup AS (
+    SELECT 
+        Grade, 
+         ROW_NUMBER() OVER (
+            PARTITION BY 
+                Grade
+            ORDER BY 
+                Grade
+        ) row_num
+     FROM 
+       LetterGrade
+)
+DELETE FROM Dup
+WHERE row_num > 1;
+
+--Set PK
+ALTER TABLE  LetterGrade
+ALTER COLUMN GradeID int NOT NULL;
+
+ALTER TABLE  LetterGrade
+ADD CONSTRAINT PK_LetterGrade PRIMARY KEY (GradeID);
+
+
+select student.studentID, student.FirstName, student.LastName, results.MidtermExam, Results.FinalExam, Results.Assignment1, Results.Assignment2,average.totalpoints, average.studentaverage,  Lettergrade.grade, LetterGrade.GradeID
+from (((Student
+inner join Results on Student.StudentID = results.StudentID)
+inner join Average on Average.studentID = Student.studentID)
+inner join LetterGrade on LetterGrade.GradeID = Average.GradeID)
+
+--Change Column in Average table to calculated. Used a function and computed column
+
+CREATE FUNCTION dbo.GradeSum(@Tot INT)
+RETURNS INT
+AS
+Begin
+Declare @testing decimal (16,2)
+SELECT @testing = MidtermExam + FinalExam + Assignment1 + Assignment2
+   FROM Results 
+   WHERE StudentID = @Tot
+   return @testing
+   End
